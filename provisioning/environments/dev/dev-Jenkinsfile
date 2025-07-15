@@ -1,0 +1,31 @@
+pipeline{
+  agent any
+  tools{
+    terraform 'terraform'
+  }
+  stages{
+    stage('SCM') {
+      steps{
+        checkout scm
+      }
+    }
+    stage('Terraform init'){
+      steps{
+        withCredentials([aws(credentialsId: 'dev_aws_credentials', accessKeyVariable: 'AWS_ACCESS_KEY_ID', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+          dir("provisioning") {
+            sh 'terraform init -backend-config="environments/${env_type}/${env_type}-backend.conf" -upgrade -reconfigure'
+          }
+        }
+      }
+    }
+    stage('Terraform apply'){
+      steps{
+        withCredentials([aws(credentialsId: 'dev_aws_credentials', accessKeyVariable: 'AWS_ACCESS_KEY_ID', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'),string(credentialsId:"couchbase-capella-dev-token",variable:"COUCHBASE_CAPELLA_TOKEN")]) {
+          dir("provisioning") {
+            sh "terraform apply -var-file=\"environments/${env_type}/${env_type}.tfvars\" -var couchbase_capella_token=${COUCHBASE_CAPELLA_TOKEN} --auto-approve"
+          }
+        }
+      }
+    }
+  }
+}
